@@ -7,32 +7,34 @@
 constexpr int SIZE = 1024; // Размер матрицы, кратный 4 для SSE
 using Matrix = std::vector<std::vector<float>>;
 
-// Исходная программа для умножения матриц (без оптимизации)
+// Наивное умножение матриц
 void multiply_naive(const Matrix &A, const Matrix &B, Matrix &C) {
     for (int i = 0; i < SIZE; ++i) {
         for (int j = 0; j < SIZE; ++j) {
-            C[i][j] = 0;
+            float sum = 0.0f;
             for (int k = 0; k < SIZE; ++k) {
-                C[i][j] += A[i][k] * B[k][j];
+                sum += A[i][k] * B[k][j];
             }
+            C[i][j] = sum;
         }
     }
 }
 
-// Программа с параллельной полуавтоматической векторизацией с использованием OpenMP
+// OpenMP с двойным коллапсом циклов
 void multiply_omp(const Matrix &A, const Matrix &B, Matrix &C) {
-    #pragma omp parallel for
+    #pragma omp parallel for collapse(2)
     for (int i = 0; i < SIZE; ++i) {
         for (int j = 0; j < SIZE; ++j) {
-            C[i][j] = 0;
+            float sum = 0.0f;
             for (int k = 0; k < SIZE; ++k) {
-                C[i][j] += A[i][k] * B[k][j];
+                sum += A[i][k] * B[k][j];
             }
+            C[i][j] = sum;
         }
     }
 }
 
-// Программа с ручной векторизацией с использованием intrinsics SSE
+// SSE с плоскими массивами и корректной обработкой
 void multiply_sse_intrinsics(const float *A, const float *B, float *C) {
     for (int i = 0; i < SIZE; i++) {
         for (int j = 0; j < SIZE; j++) {
@@ -52,7 +54,7 @@ void multiply_sse_intrinsics(const float *A, const float *B, float *C) {
     }
 }
 
-// Программа с комбинированной OpenMP и SSE оптимизацией
+// OpenMP + SSE с устранением конфликта данных
 void multiply_omp_sse(const float *A, const float *B, float *C) {
     #pragma omp parallel for
     for (int i = 0; i < SIZE; i++) {
@@ -78,34 +80,37 @@ int main() {
     Matrix B(SIZE, std::vector<float>(SIZE, 1.0f));
     Matrix C(SIZE, std::vector<float>(SIZE, 0.0f));
 
-    // Плоские массивы для SSE и OpenMP/SSE
     std::vector<float> A_flat(SIZE * SIZE, 1.0f);
     std::vector<float> B_flat(SIZE * SIZE, 1.0f);
     std::vector<float> C_flat(SIZE * SIZE, 0.0f);
 
-    // Замер времени: Naive
     auto start = std::chrono::high_resolution_clock::now();
     multiply_naive(A, B, C);
     auto end = std::chrono::high_resolution_clock::now();
-    std::cout << "Naive multiply time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << " ms\n";
+    std::cout << "Naive multiply time: " 
+              << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() 
+              << " ms\n";
 
-    // Замер времени: OpenMP
     start = std::chrono::high_resolution_clock::now();
     multiply_omp(A, B, C);
     end = std::chrono::high_resolution_clock::now();
-    std::cout << "OMP multiply time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << " ms\n";
+    std::cout << "OMP multiply time: " 
+              << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() 
+              << " ms\n";
 
-    // Замер времени: SSE
     start = std::chrono::high_resolution_clock::now();
     multiply_sse_intrinsics(A_flat.data(), B_flat.data(), C_flat.data());
     end = std::chrono::high_resolution_clock::now();
-    std::cout << "SSE intrinsics multiply time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << " ms\n";
+    std::cout << "SSE multiply time: " 
+              << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() 
+              << " ms\n";
 
-    // Замер времени: OpenMP + SSE
     start = std::chrono::high_resolution_clock::now();
     multiply_omp_sse(A_flat.data(), B_flat.data(), C_flat.data());
     end = std::chrono::high_resolution_clock::now();
-    std::cout << "OMP + SSE multiply time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << " ms\n";
+    std::cout << "OMP + SSE multiply time: " 
+              << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() 
+              << " ms\n";
 
     return 0;
 }
